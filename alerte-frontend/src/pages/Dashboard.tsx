@@ -1,68 +1,114 @@
-import { useState } from "react";
 import { Box, Typography, Paper } from "@mui/material";
-import StatsCard from "../components/StatCard.tsx";
-import AlertChart from "../components/AlertChart.tsx";
-import useAlertsWS from "../hooks/userAlertWS.ts";
-import { useAlerts } from "../context/AlertContext.tsx";
-import type { User } from "../types/User";
+import StatsCard from "../components/StatCard";
+import AlertChart from "../components/AlertChart";
+import { useAlerts } from "../context/AlertContext";
+import { useAuth } from "../auth/AuthContext";
 
-export default function Dashboard({ user }: { user: User }) {
+export default function Dashboard() {
+    const { user } = useAuth();
+    const { alerts } = useAlerts();
 
-    // ⚡ Correct : le hook doit être DANS le component
-    const { alerts, addAlert } = useAlerts();
+    if (!user?.team) return null;
 
-    const [dailyStats, setDailyStats] = useState<{ day: string; count: number }[]>([]);
-
-    // --- Fonction mise à jour du graphe ---
-    function addAlertToStats() {
-        const day = new Date().toLocaleDateString("fr-FR");
-
-        setDailyStats((prev) => {
-            const existing = prev.find((d) => d.day === day);
-
-            if (existing) {
-                return prev.map((d) =>
-                    d.day === day ? { ...d, count: d.count + 1 } : d
-                );
-            }
-
-            return [...prev, { day, count: 1 }];
-        });
-    }
-
-    // --- WebSocket : Réception alerte ---
-    useAlertsWS(user.team, (alert) => {
-        addAlert(alert);       // Ajout dans le contexte global
-        addAlertToStats();     // Mise à jour du graphe
-    });
+    // 📊 stats calculées depuis le state global
+    const dailyStats = Object.values(
+        alerts.reduce((acc, alert) => {
+            const day = new Date(alert.timestamp).toLocaleDateString("fr-FR");
+            acc[day] = acc[day]
+                ? { day, count: acc[day].count + 1 }
+                : { day, count: 1 };
+            return acc;
+        }, {} as Record<string, { day: string; count: number }>)
+    );
 
     return (
-        <Box sx={{ padding: "20px" }}>
-            <Typography variant="h4" fontWeight="bold" marginBottom={3}>
-                Dashboard Alertes — Équipe {user.team}
+        <Box sx={{ px: 2 }}>
+            <Typography
+                variant="h4"
+                sx={{ fontWeight: 800, color: "#e5e7eb", mb: 4 }}
+            >
+                Security Dashboard — Équipe {user.team}
             </Typography>
 
-            {/* ----------------- KPIs ----------------- */}
-            <div
-                style={{
-                    display: "flex",
-                    gap: "20px",
-                    flexWrap: "wrap",
+            {/* KPIs */}
+            <Box
+                sx={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                    gap: 3,
                 }}
             >
-                <StatsCard title="Alertes reçues" value={alerts.length} />
-            </div>
+                <StatsCard
+                    title="Alertes reçues"
+                    value={alerts.length}
+                    color="#ef4444"
+                />
+                <StatsCard
+                    title="Équipe surveillée"
+                    value={user.team}
+                    color="#38bdf8"
+                />
+            </Box>
 
-            {/* ----------------- GRAPHE ----------------- */}
-            <Paper sx={{ marginTop: 5, padding: 3, height: 350, borderRadius: 3 }}>
-                <Typography variant="h6" marginBottom={2}>
-                    Évolution des alertes par jour
+            {/* GRAPH */}
+            <Paper
+                sx={{
+                    mt: 5,
+                    p: 3,
+                    height: 360,
+                    borderRadius: 3,
+                    backgroundColor: "#020617",
+                    boxShadow: "0 0 0 1px #0f172a",
+                }}
+            >
+                <Typography
+                    variant="h6"
+                    sx={{ mb: 2, color: "#e5e7eb", fontWeight: 600 }}
+                >
+                    Évolution des alertes (journalier)
                 </Typography>
 
-                <Box sx={{ width: "100%", height: "100%" }}>
+                <Box sx={{ width: "100%", height: 260 }}>
                     <AlertChart data={dailyStats} />
                 </Box>
             </Paper>
+
+            {/* ALERTES EN COURS */}
+            <Box mt={5}>
+                <Typography
+                    variant="h6"
+                    sx={{ color: "#22d3ee", mb: 2, fontWeight: 700 }}
+                >
+                    Alertes en cours (équipe)
+                </Typography>
+
+                {alerts.filter(a => a.status === "IN_PROGRESS").length === 0 && (
+                    <Typography sx={{ color: "#9ca3af" }}>
+                        Aucune alerte en cours.
+                    </Typography>
+                )}
+
+                {alerts
+                    .filter(a => a.status === "IN_PROGRESS")
+                    .map(a => (
+                        <Paper
+                            key={a.id}
+                            sx={{
+                                p: 2,
+                                mb: 1.5,
+                                backgroundColor: "#020617",
+                                borderLeft: "4px solid #38bdf8",
+                            }}
+                        >
+                            <Typography sx={{ color: "#e5e7eb", fontWeight: 600 }}>
+                                {a.alertType}
+                            </Typography>
+                            <Typography sx={{ color: "#38bdf8", fontSize: 14 }}>
+                                Pris en charge par {a.assignedTo}
+                            </Typography>
+                        </Paper>
+                    ))}
+            </Box>
         </Box>
     );
 }

@@ -1,73 +1,55 @@
-import { Box, Typography, Paper, IconButton } from "@mui/material";
-import InfoIcon from "@mui/icons-material/Info";
+import { Box, Typography } from "@mui/material";
 import { useState } from "react";
-
 import type { Alert } from "../types/Alert";
 import AlertDetailsModal from "../components/AlertDetailsModal";
+import AlertCard from "../components/AlertCard";
 import { useAlerts } from "../context/AlertContext";
-import useAlertsWS from "../hooks/userAlertWS";
-import type { User } from "../types/User";
+import { useAuth } from "../auth/AuthContext";
 
-interface AlertsPageProps {
-    user: User;  // ⚠️ On passe tout l'user pour accéder à user.team
-}
+export default function AlertsPage() {
+    const { user } = useAuth();
+    const { alerts } = useAlerts();
 
-export default function AlertsPage({ user }: AlertsPageProps) {
-
-    // 📌 On récupère les alertes globales
-    const { alerts, addAlert } = useAlerts();
-
-    // 📌 On écoute les WebSockets pour l’équipe du user
-    useAlertsWS(user.team, addAlert);
+    if (!user?.team) return null;
 
     const [selected, setSelected] = useState<Alert | null>(null);
 
     return (
-        <Box sx={{ width: "100%", p: 0, pr: 0 }}>
-            <Typography variant="h5" fontWeight={700} mb={3}>
-                Alertes récentes — Équipe {user.team}
+        <Box
+            sx={{
+                p: 4,
+                minHeight: "calc(100vh - 80px)",
+                background: "#020617",
+            }}
+        >
+            <Typography
+                variant="h5"
+                sx={{
+                    fontWeight: 800,
+                    mb: 4,
+                    color: "#22d3ee",
+                    letterSpacing: 1,
+                }}
+            >
+                CENTRE D’ALERTES — ÉQUIPE {user.team}
             </Typography>
 
             {alerts.length === 0 && (
-                <Typography color="text.secondary" sx={{ mt: 4 }}>
-                    Aucune alerte reçue.
+                <Typography sx={{ color: "#9ca3af", mt: 4 }}>
+                    Aucune alerte détectée.
                 </Typography>
             )}
 
-            {alerts.map((a) => (
-                <Paper
-                    key={a.id}
-                    sx={{
-                        p: 2,
-                        mb: 2,
-                        borderLeft: "6px solid #ff5252",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 2,
-                        boxShadow: 2,
-                        width: "100%",
-                    }}
-                >
-                    <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="h6">{a.alertType}</Typography>
-
-                        <Typography color="text.secondary">
-                            {a.details?.message || a.details?.note}
-                        </Typography>
-
-                        <Typography variant="caption" color="text.secondary">
-                            ID: {a.id}
-                        </Typography>
-                    </Box>
-
-                    <IconButton onClick={() => setSelected(a)}>
-                        <InfoIcon color="primary" />
-                    </IconButton>
-                </Paper>
+            {alerts.map(alert => (
+                <AlertCard
+                    key={alert.id}
+                    alert={alert}
+                    onDetails={setSelected}
+                />
             ))}
 
             <AlertDetailsModal
-                open={selected !== null}
+                open={Boolean(selected)}
                 alert={selected}
                 onClose={() => setSelected(null)}
             />

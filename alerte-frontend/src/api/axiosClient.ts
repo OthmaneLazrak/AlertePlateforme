@@ -1,10 +1,21 @@
 import axios from "axios";
+import { getToken } from "../services/token.service";
 
-const axiosClient = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE || "http://localhost:8084",
-    headers: {
-        "Content-Type": "application/json",
-    },
+const api = axios.create({
+    baseURL: "http://localhost:8084",
 });
 
-export default axiosClient;
+api.interceptors.request.use((config) => {
+    const token = getToken();
+
+    // ❌ Ne pas envoyer le token sur /auth/**
+    if (token && !config.url?.startsWith("/auth")) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+});
+
+
+
+export default api;

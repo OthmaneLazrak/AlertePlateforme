@@ -4,10 +4,15 @@ export interface AlertDetails {
 
 
 export interface Alert {
-    id: string
+    id: number
     alertType?: string
     type?: string
     severity?: string
     timestamp?: string
     details: AlertDetails
+
+    status?: "NEW" | "IN_PROGRESS" | "RESOLVED";
+    assignedTo?: string; // username de l’analyste
+    team: "DEV" | "SYSTEME" | "RESEAU";
+
 }
